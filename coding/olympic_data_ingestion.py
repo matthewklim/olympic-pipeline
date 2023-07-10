@@ -87,11 +87,11 @@ insert_query = processed_table.insert().from_select(
 with engine.begin() as connection:
     connection.execute(insert_query)
 
-# Step 13: Create the reporting_data_table
+# Step 13: Create the medal_summary table
 reporting_data_schema = 'reporting'
-reporting_table_name = 'countries_with_medals'
-reporting_table = Table(
-    reporting_table_name,
+medal_summary_table_name = 'medal_summary'
+medal_summary_table = Table(
+    medal_summary_table_name,
     metadata,
     Column('year', Integer),
     Column('season', String),
@@ -101,10 +101,10 @@ reporting_table = Table(
 )
 
 # Step 14: Create the table if it doesn't exist
-if not inspector.has_table(reporting_table_name, schema=reporting_data_schema):
-    reporting_table.create(bind=engine, checkfirst=True)
+if not inspector.has_table(medal_summary_table_name, schema=reporting_data_schema):
+    medal_summary_table.create(bind=engine, checkfirst=True)
 
-# Step 15: Populate the reporting_data_table
+# Step 15: Populate the medal_summary table
 subquery = (
     select(
         processed_table.c.year,
@@ -116,7 +116,7 @@ subquery = (
     .alias()
 )
 
-insert_query = reporting_table.insert().from_select(
+insert_query = medal_summary_table.insert().from_select(
     ['year', 'season', 'countries_with_medals'],
     subquery
 )
