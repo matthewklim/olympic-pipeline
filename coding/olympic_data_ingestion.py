@@ -94,7 +94,19 @@ insert_query = processed_table.insert().from_select(
 with engine.begin() as connection:
     connection.execute(insert_query)
 
-# Step 13: Create the medal_summary table
+# Step 13: Create the index and cluster the table
+index_name = 'idx_athlete_competitions_season_year'
+with engine.begin() as connection:
+    create_index_statement = text(
+        f"CREATE INDEX IF NOT EXISTS {index_name} ON {output_data_schema}.{output_table_name} (season, year)"
+    )
+    connection.execute(create_index_statement)
+    cluster_statement = text(
+        f"CLUSTER {output_data_schema}.{output_table_name} USING {index_name}"
+    )
+    connection.execute(cluster_statement)
+    
+# Step 14: Create the medal_summary table
 reporting_data_schema = 'reporting'
 medal_summary_table_name = 'medal_summary'
 medal_summary_table = Table(
@@ -107,11 +119,11 @@ medal_summary_table = Table(
     extend_existing=True
 )
 
-# Step 14: Create the table if it doesn't exist
+# Step 15: Create the table if it doesn't exist
 if not inspector.has_table(medal_summary_table_name, schema=reporting_data_schema):
     medal_summary_table.create(bind=engine, checkfirst=True)
 
-# Step 15: Populate the medal_summary table
+# Step 16: Populate the medal_summary table
 insert_query = medal_summary_table.insert().from_select(
     ['year', 'season', 'countries_with_medals'],
     select(
