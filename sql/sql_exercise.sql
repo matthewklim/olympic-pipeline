@@ -67,7 +67,8 @@ SELECT
 FROM
        account
 GROUP BY
-       industry;
+       industry
+;
 
 
 /* 2. Which account_name has the highest unique users that had SUCCESS app logins in
@@ -94,7 +95,8 @@ GROUP BY
 QUALIFY
        DENSE_RANK() OVER (ORDER BY user_count) = 1 -- return the first ranked account_name with the highest successful logins and will return multiple if tied for first
 ORDER BY
-       1;
+       1
+;
 
 
 /* 3. Which app_names have not had any login events today? 
@@ -144,7 +146,7 @@ SELECT
        AVG(time_since_acquisition)                                                         AS average_days_since_acquisition
 FROM
        account_acquisition_time
-       ;       
+;       
 
 
 /* 5. What are the top 10 app_name with the highest 30 day unique users and how many 30
@@ -243,3 +245,4 @@ WHERE
        users.status = 'ACTIVE'
 GROUP BY
        1,2
+;
