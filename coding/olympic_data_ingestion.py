@@ -42,6 +42,8 @@ raw_table = Table(
     raw_table_name,
     metadata,
     Column('data', JSON),
+    Column('ingestion_source', String),
+    Column('ingestion_timestamp', String),
     schema=raw_data_schema
 )
 if not inspector.has_table(raw_table_name, schema=raw_data_schema):
@@ -49,10 +51,10 @@ if not inspector.has_table(raw_table_name, schema=raw_data_schema):
 
 # Step 8: Insert the transformed data into the table
 with engine.begin() as connection:
-    connection.execute(raw_table.insert(), [{"data": row} for row in parsed_data])
-
-# Step 9: Perform any additional optimizations (e.g., creating cluster partitions)
-
+    values = [{"data": row, "ingestion_source": "python_pipeline", "ingestion_timestamp": func.current_timestamp()} 
+              for row in parsed_data]
+    connection.execute(raw_table.insert().values(values))
+    
 # Step 10: Create the processed_data_table
 output_data_schema = 'olympics'
 output_table_name = 'athlete_competitions'
@@ -85,7 +87,12 @@ if not inspector.has_table(output_table_name, schema=output_data_schema):
 # Step 12: Populate the processed_data_table
 insert_query = processed_table.insert().from_select(
     processed_table.columns.keys(),
-    select(*[cast(func.json_extract_path_text(raw_table.c.data, key), Integer).label(key) if key in numeric_columns else cast(func.json_extract_path_text(raw_table.c.data, key), String).label(key) for key in keys])
+    select(*[
+        cast(func.nullif(func.json_extract_path_text(raw_table.c.data, key), ''), Integer).label(key)
+        if key in numeric_columns
+        else cast(func.json_extract_path_text(raw_table.c.data, key), String).label(key)
+        for key in keys
+    ])
     .select_from(raw_table)
 )
 
@@ -94,15 +101,18 @@ with engine.begin() as connection:
 
 # Step 13: Create the index and cluster the table
 index_name = 'idx_athlete_competitions_season_year'
+
 with engine.begin() as connection:
     create_index_statement = text(
         f"CREATE INDEX IF NOT EXISTS {index_name} ON {output_data_schema}.{output_table_name} (season, year)"
     )
     connection.execute(create_index_statement)
+
     cluster_statement = text(
         f"CLUSTER {output_data_schema}.{output_table_name} USING {index_name}"
     )
     connection.execute(cluster_statement)
+
 # Step 14: Create the medal_summary table
 reporting_data_schema = 'reporting'
 medal_summary_table_name = 'medal_summary'
