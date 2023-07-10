@@ -106,12 +106,20 @@ WHERE
               )
 
 /* 4. What's the average time it takes from customer acquisition to having their first app login? */
-SELECT AVG(DATEDIFF('day', a.customer_acquisition_date
-,      MIN(e.event_datetime)))                                                             AS avg_time
-FROM account a
-JOIN users u ON a.account_id = u.account_id
-JOIN app_login_events e ON u.user_id = e.user_id
-GROUP BY a.account_id;
+SELECT AVG(DATEDIFF('day', account.customer_acquisition_date
+,      MIN(app_login_events.event_datetime)))                                                             AS avg_time
+FROM
+       account
+JOIN
+       users 
+ON
+       account.account_id = users.account_id
+JOIN
+       app_login_events 
+ON
+       users.user_id = app_login_events.user_id
+GROUP BY
+       account.account_id;
 
 
 /* 5. What are the top 10 app_name with the highest 30 day unique users and how many 30
@@ -119,26 +127,40 @@ day unique users do each of those 10 apps have? */
 
 SELECT app_name
 ,      COUNT(DISTINCT u.user_id)                                                           AS unique_users
-FROM app a
-JOIN app_login_events e ON a.app_id = e.app_id
-JOIN users u ON e.user_id = u.user_id
-WHERE e.event_datetime >= CURRENT_DATE - INTERVAL '30 days'
-GROUP BY app_name
-ORDER BY unique_users DESC
+FROM
+       app
+JOIN
+       app_login_events
+ON
+       app.app_id = app_login_events.app_id
+JOIN
+       users u ON app_login_events.user_id = users.user_id
+WHERE
+       app_login_events.event_datetime >= CURRENT_DATE - INTERVAL '30 days'
+GROUP BY
+       app_name
+ORDER BY
+       unique_users DESC
 LIMIT 10;
 
 
 /* 6. Which app_name had the most app login events resulting in FAILURE by industry over
 the past 30 days? */
 
-SELECT a.app_name,
-       a.industry,
+SELECT 
+       app.app_name
+,      app.industry
 ,      COUNT(*) AS failure_count
-FROM app a
-JOIN app_login_events e ON a.app_id = e.app_id
-WHERE e.event_datetime >= CURRENT_DATE - INTERVAL '30 days' AND e.result = 'FAILURE'
-GROUP BY a.app_name, a.industry
-ORDER BY failure_count DESC
+FROM
+       app a
+JOIN
+       app_login_events e ON account.app_id = app_login_events.app_id
+WHERE
+       app_login_events.event_datetime >= CURRENT_DATE - INTERVAL '30 days' AND app_login_events.result = 'FAILURE'
+GROUP BY
+       account.app_name, account.industry
+ORDER BY
+       failure_count DESC
 LIMIT 1;
 
 
@@ -153,7 +175,7 @@ ADD COLUMN status_end_date timestamp;
 
 
 
-For designing the slowly changing dimension in question 7, this could add a start and end timestamp to track points in time in a SCD2 type table. A user could then run a query like to find active user counts at a point in time:
+For designing the slowly changing dimension in question 7, this could add a start and end timestamp to track points in time in a SCD2 type tablapp_login_events. A user could then run a query like to find active user counts at a point in time:
 
 SELECT
        calendar_events.calendar_date
