@@ -58,13 +58,24 @@ with engine.begin() as connection:
 # Step 10: Create the processed_data_table
 output_data_schema = 'olympics'
 output_table_name = 'medal_awards'
+
+# Extract unique keys from the JSON data
+keys = set()
+numeric_columns = ['age', 'weight', 'athlete_id', 'height', 'year']
+
+for item in parsed_data:
+    keys.update(item.keys())
+
+# Define the table dynamically based on the unique keys
+processed_table_columns = [
+    Column(key, Integer) if key in numeric_columns else Column(key, String)
+    for key in keys
+]
+
 processed_table = Table(
     output_table_name,
     metadata,
-    Column('year', Integer),
-    Column('season', String),
-    Column('medal', String),
-    Column('team', String),
+    *processed_table_columns,
     schema=output_data_schema,
     extend_existing=True  # Enable extending the existing table
 )
@@ -75,13 +86,9 @@ if not inspector.has_table(output_table_name, schema=output_data_schema):
 
 # Step 12: Populate the processed_data_table
 insert_query = processed_table.insert().from_select(
-    ['year', 'season', 'medal', 'team'],
-    select(
-        cast(func.json_extract_path_text(raw_table.c.data, 'year'), Integer).label('year'),
-        cast(func.json_extract_path_text(raw_table.c.data, 'season'), String).label('season'),
-        cast(func.json_extract_path_text(raw_table.c.data, 'medal'), String).label('medal'),
-        cast(func.json_extract_path_text(raw_table.c.data, 'team'), String).label('team')
-    ).select_from(raw_table)
+    processed_table.columns.keys(),
+    select(*[cast(func.json_extract_path_text(raw_table.c.data, key), Integer).label(key) if key in numeric_columns else cast(func.json_extract_path_text(raw_table.c.data, key), String).label(key) for key in keys])
+    .select_from(raw_table)
 )
 
 with engine.begin() as connection:
@@ -106,16 +113,16 @@ if not inspector.has_table(medal_summary_table_name, schema=reporting_data_schem
 
 # Step 15: Populate the medal_summary table
 insert_query = medal_summary_table.insert().from_select(
-        ['year', 'season', 'countries_with_medals'],
-        select(
-            processed_table.c.year,
-            processed_table.c.season,
-            func.count(func.distinct(processed_table.c.team)).label('countries_with_medals')
-        )
-        .select_from(processed_table)
-        .where(processed_table.c.medal.isnot(None))
-        .group_by(processed_table.c.year, processed_table.c.season)
+    ['year', 'season', 'countries_with_medals'],
+    select(
+        cast(processed_table.c.year, Integer),
+        processed_table.c.season,
+        func.count(func.distinct(processed_table.c.team)).label('countries_with_medals')
     )
+    .select_from(processed_table)
+    .where(processed_table.c.medal.isnot(None))
+    .group_by(processed_table.c.year, processed_table.c.season)
+)
 
 with engine.begin() as connection:
     connection.execute(insert_query)
