@@ -25,9 +25,7 @@ connection_params = {
 }
 
 # Create the connection string
-connection_string = "postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}".format(
-    user=user, password=password, host=host, port=port, database=database
-)
+connection_string = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}"
 engine = create_engine(connection_string)
 
 # Step 5: Import/Copy the transformed data into the database
@@ -105,7 +103,6 @@ with engine.begin() as connection:
         f"CLUSTER {output_data_schema}.{output_table_name} USING {index_name}"
     )
     connection.execute(cluster_statement)
-    
 # Step 14: Create the medal_summary table
 reporting_data_schema = 'reporting'
 medal_summary_table_name = 'medal_summary'
