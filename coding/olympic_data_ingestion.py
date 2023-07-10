@@ -25,8 +25,13 @@ connection_params = {
     'user': user,
     'password': password
 }
-connection_string = "postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}".format(**connection_params)
+
+# Create the connection string
+connection_string = "postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}".format(
+    user=user, password=password, host=host, port=port, database=database
+)
 engine = create_engine(connection_string)
+connection = engine.connect()
 
 # Step 5: Import/Copy the transformed data into the database
 metadata = MetaData()
@@ -45,43 +50,46 @@ if not inspector.has_table(table_name):
     )
     table.create(bind=engine, checkfirst=True)
 
+# Step 8: Insert the transformed data into the table
 table = Table(table_name, metadata, autoload=True, autoload_with=engine)
 
-# Step 8: Insert the transformed data into the table
-with engine.begin() as connection:
+try:
     connection.execute(table.insert(), [{"data": row} for row in parsed_data])
 
-# Step 9: Perform any additional optimizations (e.g., creating cluster partitions)
+    # Step 9: Perform any additional optimizations (e.g., creating cluster partitions)
 
-# Step 10: Create the processed_data_table
-processed_table_name = 'processed_data_table'
-processed_table = Table(
-    processed_table_name,
-    metadata,
-    Column('year', Integer),
-    Column('season', String),
-    Column('medal', String),
-    Column('team', String),
-    extend_existing=True  # Enable extending the existing table
-)
+    # Step 10: Create the processed_data_table
+    processed_table_name = 'processed_data_table'
+    processed_table = Table(
+        processed_table_name,
+        metadata,
+        Column('year', Integer),
+        Column('season', String),
+        Column('medal', String),
+        Column('team', String),
+        extend_existing=True  # Enable extending the existing table
+    )
 
-# Step 11: Create the table if it doesn't exist
-if not inspector.has_table(processed_table_name):
-    processed_table.create(bind=engine, checkfirst=True)
+    # Step 11: Create the table if it doesn't exist
+    if not inspector.has_table(processed_table_name):
+        processed_table.create(bind=engine, checkfirst=True)
 
-# Step 12: Populate the processed_data_table
-insert_query = processed_table.insert().from_select(
-    ['year', 'season', 'medal', 'team'],
-    select(
-        cast(func.json_extract_path_text(table.c.data, 'year'), Integer).label('year'),
-        cast(func.json_extract_path_text(table.c.data, 'season'), String).label('season'),
-        cast(func.json_extract_path_text(table.c.data, 'medal'), String).label('medal'),
-        cast(func.json_extract_path_text(table.c.data, 'team'), String).label('team')
-    ).select_from(table)
-)
+    # Step 12: Populate the processed_data_table
+    insert_query = processed_table.insert().from_select(
+        ['year', 'season', 'medal', 'team'],
+        select(
+            cast(func.json_extract_path_text(table.c.data, 'year'), Integer).label('year'),
+            cast(func.json_extract_path_text(table.c.data, 'season'), String).label('season'),
+            cast(func.json_extract_path_text(table.c.data, 'medal'), String).label('medal'),
+            cast(func.json_extract_path_text(table.c.data, 'team'), String).label('team')
+        ).select_from(table)
+    )
 
-with engine.begin() as connection:
     connection.execute(insert_query)
+    
+except Exception as e:
+    print(f"An error occurred: {str(e)}")
 
-# Close the database connection (if necessary)
-engine.dispose()
+finally:
+    connection.close()
+    engine.dispose()
