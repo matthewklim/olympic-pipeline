@@ -57,7 +57,7 @@ with engine.begin() as connection:
 
 # Step 10: Create the processed_data_table
 output_data_schema = 'olympics'
-output_table_name = 'medal_awards'
+output_table_name = 'athlete_competitions'
 
 # Extract unique keys from the JSON data
 keys = set()
