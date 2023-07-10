@@ -9,8 +9,6 @@ with gzip.open(json_file_path, 'rt') as file:
 # Step 2: Parse the JSONL data
 parsed_data = [json.loads(line) for line in json_data]
 
-# Step 3: Transform the data (if needed)
-
 # Step 4: Connect to the PostgreSQL database
 host = os.environ.get('pghost')
 port = os.environ.get('pgport')
@@ -31,65 +29,100 @@ connection_string = "postgresql+psycopg2://{user}:{password}@{host}:{port}/{data
     user=user, password=password, host=host, port=port, database=database
 )
 engine = create_engine(connection_string)
-connection = engine.connect()
 
 # Step 5: Import/Copy the transformed data into the database
 metadata = MetaData()
 metadata.reflect(bind=engine)
 inspector = inspect(engine)
 
-# Step 6: Create the table schema for temp_data_table
-table_name = 'temp_data_table'
+# Step 6: Create the table schema for raw_data.olympics
+raw_data_schema = 'raw_data'
+raw_table_name = 'olympics'
 
 # Step 7: Create the table if it doesn't exist
-if not inspector.has_table(table_name):
-    table = Table(
-        table_name,
-        metadata,
-        Column('data', JSON)
-    )
-    table.create(bind=engine, checkfirst=True)
+raw_table = Table(
+    raw_table_name,
+    metadata,
+    Column('data', JSON),
+    schema=raw_data_schema
+)
+if not inspector.has_table(raw_table_name, schema=raw_data_schema):
+    raw_table.create(bind=engine, checkfirst=True)
 
 # Step 8: Insert the transformed data into the table
-table = Table(table_name, metadata, autoload=True, autoload_with=engine)
+with engine.begin() as connection:
+    connection.execute(raw_table.insert(), [{"data": row} for row in parsed_data])
 
-try:
-    connection.execute(table.insert(), [{"data": row} for row in parsed_data])
+# Step 9: Perform any additional optimizations (e.g., creating cluster partitions)
 
-    # Step 9: Perform any additional optimizations (e.g., creating cluster partitions)
+# Step 10: Create the processed_data_table
+output_data_schema = 'olympics'
+output_table_name = 'medal_awards'
+processed_table = Table(
+    output_table_name,
+    metadata,
+    Column('year', Integer),
+    Column('season', String),
+    Column('medal', String),
+    Column('team', String),
+    schema=output_data_schema,
+    extend_existing=True  # Enable extending the existing table
+)
 
-    # Step 10: Create the processed_data_table
-    processed_table_name = 'processed_data_table'
-    processed_table = Table(
-        processed_table_name,
-        metadata,
-        Column('year', Integer),
-        Column('season', String),
-        Column('medal', String),
-        Column('team', String),
-        extend_existing=True  # Enable extending the existing table
-    )
+# Step 11: Create the table if it doesn't exist
+if not inspector.has_table(output_table_name, schema=output_data_schema):
+    processed_table.create(bind=engine, checkfirst=True)
 
-    # Step 11: Create the table if it doesn't exist
-    if not inspector.has_table(processed_table_name):
-        processed_table.create(bind=engine, checkfirst=True)
+# Step 12: Populate the processed_data_table
+insert_query = processed_table.insert().from_select(
+    ['year', 'season', 'medal', 'team'],
+    select(
+        cast(func.json_extract_path_text(raw_table.c.data, 'year'), Integer).label('year'),
+        cast(func.json_extract_path_text(raw_table.c.data, 'season'), String).label('season'),
+        cast(func.json_extract_path_text(raw_table.c.data, 'medal'), String).label('medal'),
+        cast(func.json_extract_path_text(raw_table.c.data, 'team'), String).label('team')
+    ).select_from(raw_table)
+)
 
-    # Step 12: Populate the processed_data_table
-    insert_query = processed_table.insert().from_select(
-        ['year', 'season', 'medal', 'team'],
-        select(
-            cast(func.json_extract_path_text(table.c.data, 'year'), Integer).label('year'),
-            cast(func.json_extract_path_text(table.c.data, 'season'), String).label('season'),
-            cast(func.json_extract_path_text(table.c.data, 'medal'), String).label('medal'),
-            cast(func.json_extract_path_text(table.c.data, 'team'), String).label('team')
-        ).select_from(table)
-    )
-
+with engine.begin() as connection:
     connection.execute(insert_query)
-    
-except Exception as e:
-    print(f"An error occurred: {str(e)}")
 
-finally:
-    connection.close()
-    engine.dispose()
+# Step 13: Create the reporting_data_table
+reporting_data_schema = 'reporting'
+reporting_table_name = 'countries_with_medals'
+reporting_table = Table(
+    reporting_table_name,
+    metadata,
+    Column('year', Integer),
+    Column('season', String),
+    Column('countries_with_medals', Integer),
+    schema=reporting_data_schema,
+    extend_existing=True
+)
+
+# Step 14: Create the table if it doesn't exist
+if not inspector.has_table(reporting_table_name, schema=reporting_data_schema):
+    reporting_table.create(bind=engine, checkfirst=True)
+
+# Step 15: Populate the reporting_data_table
+subquery = (
+    select(
+        processed_table.c.year,
+        processed_table.c.season,
+        func.count(func.distinct(processed_table.c.team)).label('countries_with_medals')
+    )
+    .where(processed_table.c.medal.isnot(None))
+    .group_by(processed_table.c.year, processed_table.c.season)
+    .alias()
+)
+
+insert_query = reporting_table.insert().from_select(
+    ['year', 'season', 'countries_with_medals'],
+    subquery
+)
+
+with engine.begin() as connection:
+    connection.execute(insert_query)
+
+# Close the database connection (if necessary)
+engine.dispose()
