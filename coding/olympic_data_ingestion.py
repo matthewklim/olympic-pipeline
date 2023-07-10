@@ -105,21 +105,17 @@ if not inspector.has_table(medal_summary_table_name, schema=reporting_data_schem
     medal_summary_table.create(bind=engine, checkfirst=True)
 
 # Step 15: Populate the medal_summary table
-subquery = (
-    select(
-        processed_table.c.year,
-        processed_table.c.season,
-        func.count(func.distinct(processed_table.c.team)).label('countries_with_medals')
-    )
-    .where(processed_table.c.medal.isnot(None))
-    .group_by(processed_table.c.year, processed_table.c.season)
-    .alias()
-)
-
 insert_query = medal_summary_table.insert().from_select(
-    ['year', 'season', 'countries_with_medals'],
-    subquery
-)
+        ['year', 'season', 'countries_with_medals'],
+        select(
+            processed_table.c.year,
+            processed_table.c.season,
+            func.count(func.distinct(processed_table.c.team)).label('countries_with_medals')
+        )
+        .select_from(processed_table)
+        .where(processed_table.c.medal.isnot(None))
+        .group_by(processed_table.c.year, processed_table.c.season)
+    )
 
 with engine.begin() as connection:
     connection.execute(insert_query)
