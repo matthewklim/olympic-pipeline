@@ -1,8 +1,17 @@
-import json, gzip, os
+import json, gzip, os, glob
+from pathlib import Path
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, select, cast, JSON, inspect, func, text
 
 # Step 1: READ the JSONL file
-json_file_path = './raw_data/athlete_events_2006_2016.jsonl.gz'
+
+file_pattern = "./raw_data/athlete_events_*.jsonl.gz"
+matching_files = glob.glob(file_pattern)
+
+matching_files.sort(key=lambda x: int(Path(x).stem.split("_")[2]))  # Sort by the timestamp part of the file name
+
+latest_file = matching_files[-1]  # Get the most recent file
+json_file_path = str(Path(latest_file))
+
 with gzip.open(json_file_path, 'rt') as file:
     json_data = file.readlines()
 
