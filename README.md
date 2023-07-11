@@ -1,6 +1,6 @@
 # olympic-pipeline-sql
 
-* [Part 1: Coding](coding/README.md): The Python in this repo is developed in version 3.9.13. PostgreSQL is the database used in the backend
+* [Part 1: Coding](coding/README.md): The Python in this repo is developed in version 3.9.13. The PostgreSQL database is version 15
 * [Part 2: SQL](sql/README.md): The SQL in this exercise uses Snowflake syntax
 
 ## Reproducibility
