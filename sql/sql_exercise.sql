@@ -140,10 +140,11 @@ ON
        users.account_id = account.account_id
 GROUP BY
        users.account_id
-,      users.customer_acquisition_date
+,      account.customer_acquisition_date
        )
 SELECT 
        AVG(time_since_acquisition)                                                         AS average_days_since_acquisition
+,      SUM(time_since_acquisition)/COUNT(account_id)                                       AS equivalent_average_days_since_acquisition_calculation
 FROM
        account_acquisition_time
 ;       
