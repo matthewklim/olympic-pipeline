@@ -170,6 +170,8 @@ ORDER BY
 
 Query 7: Table Design: Slowly Changing Dimension for User Status
 
+For designing the slowly changing dimension in question 7, this could add a start and end timestamp to track points in time in a SCD2 type table. A user could join table containing all possible dates or another dataset of interest between start and end times of user status. Use cases explored in [sql_exercise.sql](sql_exercise.sql).
+
 <details open><summary>This section provides a brief discussion on how to design a table to track the current and historical values of user_status. It suggests using additional columns like status_start_date and status_end_date to capture changes over time.
 </summary>
 
