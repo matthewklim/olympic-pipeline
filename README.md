@@ -16,3 +16,5 @@ The PostreSQL database developed in part 1 is locally hosted and can be download
 ### Python
 
 This repository includes a `requirements.txt` to install any necessary packages to run the python script. `juptyer` is an optional package to provide an interactive notebook interface to run or debug the python script.
+
+Outside of indexing, [olympic_data_ingestion.py](coding/olympic_data_ingestion.py) is intended to be database-agnostic code and can easily be modified to run on another database like Snowflake.
