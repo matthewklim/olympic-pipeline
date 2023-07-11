@@ -49,22 +49,49 @@ Summary of the python script:
 
 The python scripts creates three tables in the pipeline process:
 
-1. `raw_data.olympics`: raw unfiltered json
-2. `olympics.athlete_competitions`: all columns parsed into a SQL table
-3. ` reporting.medal_summary`: summary table for Tableau
+* `raw_data.olympics`: This table stores the raw, unfiltered JSON data obtained from the Olympic Games source. It serves as the initial stage in the data pipeline, capturing the data in its original format.
+* `olympics.athlete_competitions`: This table contains all the relevant columns parsed from the raw data and transformed into a structured SQL table. It serves as the primary data source for various analyses and visualizations in Tableau.
+* `reporting.medal_summary`: This summary table aggregates and summarizes the medal-related information from the olympics.athlete_competitions table. It provides a condensed view of medal trends over time by sport and other key metrics, facilitating easier reporting and decision-making.
+
+Once the pipeline is executed, the users will see their data reflected im their Tableau reports with data sources connected to either `olympics.athlete_competitions` or `reporting.medal_summary`. While not explored in this exercise, the data in `olympics.athelete_competitions` enables a number of analyses and visualizations for business stakeholders (e.g. medal trends over time by sport and any changes in weight and height of the athletes competing).
+
+<details><summary>Five sample rows from the olympics.athlete_competitions of the highest medal earners</summary>
+| team          | height | year  | sport      | noc | season | sex | event                                       | medal  | weight | city           | age | athlete_id | name                             |
+| ------------- | ------ | ----- | ---------- | --- | ------ | --- | ------------------------------------------- | ------ | ------ | -------------- | --- | ---------- | -------------------------------- |
+| Germany       | 165    | 2,016 | Gymnastics | GER | Summer | M   | Gymnastics Men's Horizontal Bar             | [NULL] | 55     | Rio de Janeiro | 28  | 85,712     | Marcel Van Minh Phuc Long Nguyen |
+| Japan         | 160    | 2,016 | Gymnastics | JPN | Summer | M   | Gymnastics Men's Pommelled Horse            | [NULL] | 54     | Rio de Janeiro | 27  | 123,056    | Kohei Uchimura                   |
+| Germany       | 164    | 2,016 | Gymnastics | GER | Summer | M   | Gymnastics Men's Team All-Around            | [NULL] | 62     | Rio de Janeiro | 28  | 45,219     | Fabian Hambchen                  |
+| United States | 193    | 2,016 | Swimming   | USA | Summer | M   | Swimming Men's 4 x 100 metres Medley Relay  | Gold   | 91     | Rio de Janeiro | 31  | 94,406     | Michael Fred Phelps, II          |
+| United States | 193    | 2,016 | Swimming   | USA | Summer | M   | Swimming Men's 200 metres Individual Medley | Gold   | 91     | Rio de Janeiro | 31  | 94,406     | Michael Fred Phelps, II          |
+
+</details>
+
+*Unsurprisingly, Michael Fred Phelps, II is the highest total medal winner in this dataset between 2006 and 2016 (He is also the highest medal winner of all time).*
 
 ## 2. ETL Pipeline Components
 
-In order to enhance the automation and efficiency of the existing pipeline, I would recommend the following changes and enhancements:
+The python script created in part 1 is an incomplete data pipeline on its own and custom ingestion scripts have their own pros and cons.
 
-Implementing a data ingestion system: Instead of relying on manual delivery of data, we can set up a data ingestion system that automatically fetches new data from the source. This can be achieved through technologies like Apache Kafka or AWS Kinesis, which provide real-time data streaming capabilities.
+### Benefits
 
-Enhancing data validation and error handling: To ensure the quality of incoming data, we can introduce data validation checks at various stages of the pipeline. This includes validating data integrity, format, and schema compliance. Additionally, implementing robust error handling mechanisms and logging will help in identifying and resolving issues more effectively.
+* Customizable and flexible: The script can be tailored to specific requirements and adapt to changing needs.
+* Cost-effective: Building an in-house solution eliminates the need for licensing costs associated with third-party tools.
 
-Scaling the data processing: As the volume of data increases, it's important to scale the data processing capabilities. We can explore options like distributed processing frameworks such as Apache Spark or cloud-based solutions like AWS EMR (Elastic MapReduce) to efficiently handle large-scale data transformations.
+### Challenges
 
-Utilizing containerization and orchestration: Containerization tools like Docker can be utilized to package the entire ETL pipeline, including dependencies and configurations. This ensures consistency across different environments and makes deployment easier. Coupled with container orchestration tools like Kubernetes, we can achieve better resource management and scalability.
+* Difficulty with maintenance and changes: As the pipeline evolves, making updates and modifications to the script can be challenging and time-consuming.
+* Lack of standardization: Without standardized practices, the pipeline may lack consistency in data processing logic, naming conventions, and overall structure.
+* Responsibility for the entire pipeline: All aspects, from scheduling ingestions to transformations, error handling, and alerting, need to be handled within the script.
+* Lack of change data capture implementation: Implementing change data capture functionality may be complex and is not handled in the Python script.
+* Maintenance and scalability over time: As data volumes grow and requirements change, maintaining and scaling the script may become more difficult.
 
-Monitoring and alerting: Implementing a monitoring system will allow us to track the performance and health of the pipeline in real-time. We can leverage tools like Prometheus or ELK stack (Elasticsearch, Logstash, Kibana) to collect and visualize metrics. Setting up alerting mechanisms will notify the team about any issues or anomalies.
+### Enhancements
 
-Continuous Integration and Deployment (CI/CD): To streamline the deployment of pipeline updates and ensure a smooth transition, we can adopt CI/CD practices. This involves setting up automated build, testing, and deployment pipelines using tools like Jenkins or GitLab CI.
+The following approach and tools can help enhance the automation and efficiency of the existing pipeline. Implementing these enhancements can greatly enhance the data pipeline, but it's essential to balance these improvements with cost considerations. Evaluating the cost-effectiveness of each enhancement, including licensing fees, infrastructure costs, and ongoing maintenance expenses, will ensure that the pipeline remains sustainable and aligned with business cost constraints.
+
+* Adopt pre-built tools: Consider incorporating tools like Fivetran, DataDog, or Monte Carlo for monitoring, alerting, data ingestion and validation. These tools offer out-of-the-box functionality, reducing the burden of maintenance and providing standardized practices.
+* Introduce a dedicated transformation layer: Implement a tool like dbt (data build tool) as the primary transformation layer. This separates the transformation logic from the ingestion process and enables better maintainability and scalability.
+* Flexible visualization and reporting: Utilize data tools like Looker or PowerBI for reporting purposes are excellent self service reporting tools. The data models in tools help make easy iterations, enhancing the visualization and reporting capabilities.
+* Implement containerization and orchestration: Utilize containerization tools like Docker to package the pipeline and ensure consistency across different environments. Coupling it with orchestration tools like Kubernetes enables better resource management and scalability.
+* Integrate change data capture: Evaluate the need for change data capture and explore options like Apache Kafka or AWS Kinesis to capture real-time data changes. This enables more granular updates to the pipeline and reduces the load on the system.
+* Enhance monitoring and alerting: Implement a monitoring system using tools like Prometheus or ELK stack for real-time tracking of pipeline performance and health. Set up alerting mechanisms to promptly notify the team about any issues or anomalies.

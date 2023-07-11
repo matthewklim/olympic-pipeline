@@ -67,7 +67,8 @@ SELECT
 FROM
        account
 GROUP BY
-       industry;
+       industry
+;
 
 
 /* 2. Which account_name has the highest unique users that had SUCCESS app logins in
@@ -94,11 +95,12 @@ GROUP BY
 QUALIFY
        DENSE_RANK() OVER (ORDER BY user_count) = 1 -- return the first ranked account_name with the highest successful logins and will return multiple if tied for first
 ORDER BY
-       1;
+       1
+;
 
 
 /* 3. Which app_names have not had any login events today? 
-* this looks for any event regardless of success or failure and will return any app_names that had no entries in app_login_events
+*  this query checks for login events regardless of success or failure and returns app_names that have no entries in the app_login_events table on the current day
 */
 SELECT 
        app_name
@@ -108,7 +110,7 @@ WHERE
        NOT EXISTS (
               SELECT TRUE
               FROM app_login_events
-              WHERE event_date_time::DATE = current_timestamp::DATE
+              WHERE event_date_time::DATE = CURRENT_DATE()
               AND app.app_id = app_login_events.app_id
               )
 
@@ -144,7 +146,7 @@ SELECT
        AVG(time_since_acquisition)                                                         AS average_days_since_acquisition
 FROM
        account_acquisition_time
-       ;       
+;       
 
 
 /* 5. What are the top 10 app_name with the highest 30 day unique users and how many 30
@@ -183,11 +185,11 @@ SELECT
 ,      app.industry
 ,      COUNT(app_login_events.event_id)                                                    AS failure_count
 FROM
-       app a
+       app
 JOIN
        app_login_events
 ON
-       account.app_id = app_login_events.app_id
+       app.app_id = app_login_events.app_id
 WHERE
        app_login_events.event_datetime >= CURRENT_DATE - INTERVAL '30 days' 
 AND
@@ -195,7 +197,7 @@ AND
 GROUP BY
        1,2
 QUALIFY
-       ROW_NUMBR() OVER (PARTITION BY app.indsutry ORDER BY failure_count) = 1 --return the highest app_name by industry
+       ROW_NUMBER() OVER (PARTITION BY app.industry ORDER BY failure_count) = 1 --return the highest app_name by industry - this could be dense_rank if ties matter
 ORDER BY
        failure_count DESC
 ;
@@ -204,7 +206,17 @@ ORDER BY
 /* The User table given at the top reflects the current status of a user. We know that user
 status can change over time with the user_status field being a slowly changing
 dimension. How would you design this table (hint: adding some columns) so that we can
-track the current and historical values of user_status at any given time? Please be brief */
+track the current and historical values of user_status at any given time? Please be brief 
+
+* Since the user table is not a typical event log,
+this could be achieved in at least a couple of ways through Change Data Capture from a platform like Fivetran or creating snapshots in a tool like dbt 
+or writing manual SQL scripts.
+* CDC platforms like Fivetran can capture and propagate real-time changes, enabling the tracking and synchronization of user_status changes to another system or table.
+* dbt (data build tool), snapshots of the user table can be created at different points in time, capturing the user_status values. These snapshots can be managed and used for historical analysis.
+* Manual SQL scripts can be used to periodically extract and store the user_status changes, involving custom SQL queries to identify and track the changes over time and storing the results in a separate table.
+For simplicity, the query below modifies the existing users table, but a separate user_status table could be created.
+*/
+
 
 ALTER TABLE users
 ADD COLUMN status_start_date timestamp,
@@ -215,9 +227,9 @@ ADD COLUMN status_end_date timestamp;
 For designing the slowly changing dimension in question 7, this could add a start and end timestamp to track points in time in a SCD2 type table. 
 A user could join table containing all possible dates or another dataset of interest between start and end times of user status.
 * The query below would return active user counts based on their status at a point in time by day which a business user could use to monitor activity.
-* The output of this query is limited to a single status and could be modified to represent INACTIVE or LOCKED_OUT separately
+* the output of the query is limited to a single status, such as 'ACTIVE', but it could be modified to include other statuses like 'INACTIVE' or 'LOCKED_OUT' separately as well
 * User statuses have the potential to overlap where users could switch from various combinations of INACTIVE to ACTIVE or ACTIVE to LOCKED OUT
-* Displaying the output in visual like a stacked bar chart may be appropriate for a business use case, but the overlap should be highlighted for a business user to avoid confusion
+* Displaying the output in visual like a stacked bar chart may be appropriate for a business use case, but the overlap should be highlighted in the visualization for a business user to avoid confusion
 */
 SELECT
        calendar_events.calendar_date
@@ -233,3 +245,4 @@ WHERE
        users.status = 'ACTIVE'
 GROUP BY
        1,2
+;
