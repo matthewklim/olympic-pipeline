@@ -62,7 +62,7 @@ WHERE
        NOT EXISTS (
               SELECT TRUE
               FROM app_login_events
-              WHERE event_date_time::DATE = CURRENT_DATE()
+              WHERE event_datetime::DATE = CURRENT_DATE()
               AND app.app_id = app_login_events.app_id
               )
 ;
@@ -82,26 +82,26 @@ SELECT
               'day'
        ,      account.customer_acquisition_date
        ,      MIN(app_login_events.event_datetime)
-              )      
-       )                                                                                   AS time_since_acquisition
+              )                                                                            AS time_since_acquisition
 FROM
        app_login_events
 JOIN
        users 
 ON
-       account.account_id = users.account_id
+       app_login_events.user_id = users.user_id
 JOIN
-       app_login_events
+       account
 ON
-       users.user_id = app_login_events.user_id
+       users.account_id = account.account_id
 GROUP BY
-       account.account_id
+       users.account_id
+,      users.customer_acquisition_date
        )
 SELECT 
        AVG(time_since_acquisition)                                                         AS average_days_since_acquisition
 FROM
        account_acquisition_time
-;       
+;    
 ```
 
 </details>
