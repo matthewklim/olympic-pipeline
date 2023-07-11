@@ -2,7 +2,7 @@
 
 The [olympic_data_ingestion.py](olympic_data_ingestion.py) script imports the raw JSON data from [athlete_events_2006_2016.jsonl.gz](./raw_data/athlete_events_2006_2016.jsonl.gz) into a SQL table in a locally hosted PostgreSQL database. The data is then extracted and transformed into the final three column output containing: year, season, and countries with medals.
 
-The final `reporting.medal_summary` table results in the following 6 row output:
+The ingestion completes and builds all three tables under 10 seconds and the final `reporting.medal_summary` table results in the following 6 row output:
 
 | year | season | countries_with_medals |
 |------|--------|-----------------------|
@@ -67,6 +67,10 @@ Once the pipeline is executed, the users will see their data reflected im their 
 </details>
 
 *Unsurprisingly, Michael Fred Phelps, II is the highest total medal winner in this dataset between 2006 and 2016 (He is also the highest medal winner of all time).*
+
+### Business Stakeholders
+
+Stakeholders may not require reporting that provides near real-time updated data, but it's important to ensure the pipeline is reliably handling new data and does not become a bottle neck for other processes. Stakeholders should have confidence that the data is being ingested and processed efficiently, even if they are accessing reporting on a lower cadence.
 
 ## 2. ETL Pipeline Components
 
